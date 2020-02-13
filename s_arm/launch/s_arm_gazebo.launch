@@ -1,0 +1,38 @@
+<launch>
+  <!-- 设置gazebo的启动参数 -->
+  <arg name="paused" default="true"/>
+  <arg name="use_sim_time" default="true"/>
+  <arg name="gui" default="true"/>
+  <arg name="headless" default="false"/>
+  <arg name="debug" default="false"/>
+
+  <!-- 加载空世界的启动文件 empty_world.launch ，并为相关参数赋值-->
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="debug" value="$(arg debug)" />
+    <arg name="gui" value="$(arg gui)" />
+    <arg name="paused" value="$(arg paused)"/>
+    <arg name="use_sim_time" value="$(arg use_sim_time)"/>
+    <arg name="headless" value="$(arg headless)"/>
+  </include>
+
+  <!-- 把模型加载到参数服务器 -->
+  <param name="robot_description" command="$(find xacro)/xacro --inorder '$(find s_arm)/urdf/model.xacro'" />
+  
+  <!-- Run a python script to the send a service call to gazebo_ros to spawn a URDF robot -->
+  <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model" respawn="false" output="screen"
+	args="-urdf -model arm -param robot_description"/>  
+  
+    <!-- 将关节控制器的配置参数加载到参数服务器中 -->
+    <rosparam file="$(find s_arm)/config/s_arm_control.yaml" command="load"/>
+
+    <!-- 加载controllers -->
+    <node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false"
+          output="screen" ns="/s_arm" args="joint_state_controller
+                                            joint1_position_controller"/>
+
+    <!-- 运行robot_state_publisher节点，发布tf  -->
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"
+          respawn="false" output="screen">
+        <remap from="/joint_states" to="/s_arm/joint_states" />
+    </node>
+</launch>
